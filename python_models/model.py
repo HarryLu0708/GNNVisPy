@@ -129,6 +129,10 @@ for epoch in range(1, 171):
     test_acc = test(test_loader)
     print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
 
+print("=====================================")
+for name, param in model.state_dict().items():
+    print(f"Layer: {name} | Size: {param.size()} | Values : {param[:2]} \n")
+
 #
 # model = GCN(hidden_channels=64)
 #
