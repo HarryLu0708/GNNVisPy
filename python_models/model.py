@@ -103,11 +103,12 @@ def train():
     model.train()
 
     for data in train_loader:  # Iterate in batches over the training dataset.
+         optimizer.zero_grad()
          out = model(data.x, data.edge_index, data.batch)  # Perform a single forward pass.
          loss = criterion(out, data.y)  # Compute the loss.
          loss.backward()  # Derive gradients.
          optimizer.step()  # Update parameters based on gradients.
-         optimizer.zero_grad()  # Clear gradients.
+         # optimizer.zero_grad()  # Clear gradients.
 
 def test(loader):
      model.eval()
@@ -132,6 +133,23 @@ for epoch in range(1, 171):
 print("=====================================")
 for name, param in model.state_dict().items():
     print(f"Layer: {name} | Size: {param.size()} | Values : {param[:2]} \n")
+
+# export model
+model_path = "model.pth"
+torch.save(model.state_dict(), model_path)
+print("successfully save model to the designated path!")
+
+# utility functions for the backend
+# get the result
+def predict(dummy_input, edge_index, batch):
+    model.eval()
+    # predict
+    with torch.no_grad():
+        output = model(dummy_input, edge_index, batch)
+    predict = output.argmax(dim=1)
+    result = predict.tolist()
+    return result
+
 
 #
 # model = GCN(hidden_channels=64)
