@@ -1,6 +1,6 @@
 import torch
 from torch_geometric.datasets import TUDataset
-from flask import Flask, jsonify
+from flask import Flask, jsonify, Response, stream_with_context
 from gnn_utils.utils import GCN, training_loop, predict
 
 dataset = TUDataset(root='data/TUDataset', name='MUTAG')
@@ -43,10 +43,9 @@ def get_nth_graph_data(idx):
 @app.route("/get_train_result/<epoches>")
 def get_result(epoches):
     model = GCN(hidden_channels=64, dataset=dataset)
-    # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    # criterion = torch.nn.CrossEntropyLoss()
-    li = training_loop(model, dataset=dataset, epoches=int(epoches))
-    return jsonify(li)
+    # li = training_loop(model, dataset=dataset, epoches=int(epoches))
+    return Response(stream_with_context( training_loop(model, dataset=dataset, epoches=int(epoches))), 
+                    mimetype='text/event-stream')
 
 # get the output of GCN and return it
 @app.route("/get_output")
@@ -74,11 +73,20 @@ def get_weights():
         result.append(d)
     return jsonify(result)
 
+# return the hidden activation layers
+@app.route("/get_hidden_layers")
+def get_hidden_layers():
+    pass
+
 # return 404 - if getting any errors
 @app.errorhandler(404)
 def page_not_found(e):
     print("Error ", str(e))
     return jsonify(error=str(e)), 404
+
+@app.route("/")
+def start():
+    return "start"
 
 if __name__ == "__main__":
     app.run(debug=True)

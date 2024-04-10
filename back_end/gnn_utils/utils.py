@@ -18,15 +18,18 @@ class GCN(torch.nn.Module):
         self.lin = Linear(hidden_channels, dataset.num_classes)
 
     def forward(self, x, edge_index, batch):
-        x = self.conv1(x, edge_index)
-        x = x.relu()
-        x = self.conv2(x, edge_index)
-        x = x.relu()
-        x = self.conv3(x, edge_index)
-        x = global_mean_pool(x, batch)  # [batch_size, hidden_channels]
-        x = F.dropout(x, p=0.5, training=self.training)
-        x = self.lin(x)
-        return x
+        h = self.conv1(x, edge_index)
+        h = h.relu()
+        h = self.conv2(h, edge_index)
+        h = h.relu()
+        h = self.conv3(h, edge_index)
+        h = global_mean_pool(h, batch)  # [batch_size, hidden_channels]
+        h = F.dropout(h, p=0.5, training=self.training)
+
+        # final classifier
+        out = self.lin(h)
+        
+        return out, h
 
 # training function for the model
 def train(loader, model):
@@ -35,7 +38,7 @@ def train(loader, model):
     model.train()
     for data in loader:  # Iterate in batches over the training dataset.
          optimizer.zero_grad()
-         out = model(data.x, data.edge_index, data.batch)  # Perform a single forward pass.
+         out, h = model(data.x, data.edge_index, data.batch)  # Perform a single forward pass.
          loss = criterion(out, data.y)  # Compute the loss.
          loss.backward()  # Derive gradients.
          optimizer.step()  # Update parameters based on gradients.
@@ -45,7 +48,7 @@ def test(loader, model):
      model.eval()
      correct = 0
      for data in loader:  # Iterate in batches over the training/test dataset.
-         out = model(data.x, data.edge_index, data.batch)
+         out, h = model(data.x, data.edge_index, data.batch)
          pred = out.argmax(dim=1)  # Use the class with highest probability.
          correct += int((pred == data.y).sum())  # Check against ground-truth labels.
      return correct / len(loader.dataset)  # Derive ratio of correct predictions.
@@ -67,11 +70,12 @@ def training_loop(model, dataset, epoches):
         train_acc = test(train_loader, model)
         test_acc = test(test_loader, model)
         print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
-        d = {"epoch":epoch, "train_acc":train_acc, "test_acc":test_acc}
-        li.append(d)
+        data = {"epoch":epoch, "train_acc":train_acc, "test_acc":test_acc}
+        yield f"data:{data}\n\n"
     model_path = "../model.pth"
     torch.save(model.state_dict(), model_path)
-    return li
+    print("saved model!")
+    # return li
 
 
 '''function for prediction'''
@@ -79,7 +83,7 @@ def predict(model, dummy_input, edge_index, batch):
     model.eval()
     # predict
     with torch.no_grad():
-        output = model(dummy_input, edge_index, batch)
+        output, h = model(dummy_input, edge_index, batch)
     predict = output.argmax(dim=1)
     result = predict.tolist()
     return result
