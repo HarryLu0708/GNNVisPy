@@ -61,9 +61,9 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool
 
 
-class GCN(torch.nn.Module):
+class GGN(torch.nn.Module):
     def __init__(self, hidden_channels):
-        super(GCN, self).__init__()
+        super(GGN, self).__init__()
         torch.manual_seed(12345)
         self.conv1 = GCNConv(dataset.num_node_features, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, hidden_channels)
@@ -92,10 +92,10 @@ class GCN(torch.nn.Module):
         return x
 
 
-model = GCN(hidden_channels=64)
+model = GGN(hidden_channels=64)
 print(model)
 
-model = GCN(hidden_channels=64)
+model = GGN(hidden_channels=64)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 criterion = torch.nn.CrossEntropyLoss()
 
