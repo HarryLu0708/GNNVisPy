@@ -1,7 +1,8 @@
 import torch
 from torch_geometric.datasets import TUDataset
 from flask import Flask, jsonify, Response, stream_with_context
-from gnn_utils.utils import GCN, training_loop, predict
+from gnn_utils.utils import GCN, training_loop, predict, model_to_json
+import time
 
 dataset = TUDataset(root='data/TUDataset', name='MUTAG')
 
@@ -44,7 +45,7 @@ def get_nth_graph_data(idx):
 def get_result(epoches):
     model = GCN(hidden_channels=64, dataset=dataset)
     # li = training_loop(model, dataset=dataset, epoches=int(epoches))
-    return Response(stream_with_context( training_loop(model, dataset=dataset, epoches=int(epoches))), 
+    return Response(stream_with_context(training_loop(model, dataset=dataset, epoches=int(epoches))), 
                     mimetype='text/event-stream')
 
 # get the output of GCN and return it
@@ -57,9 +58,10 @@ def get_output():
     dummy_input = torch.randn(4, dataset.num_node_features)
     edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long)
     batch = torch.tensor([0, 0, 0, 1], dtype=torch.long)
-    result = predict(model, dummy_input, edge_index, batch)
-    print(result)
-    return jsonify(result)
+    # the probability outputs and intermediate output in the model
+    result, h = predict(model, dummy_input, edge_index, batch)
+    print(result, h)
+    return jsonify({"final_output":result,"intermediate_outputs":h})
 
 # return the weights of the GCN model
 @app.route("/get_weights")
@@ -73,10 +75,13 @@ def get_weights():
         result.append(d)
     return jsonify(result)
 
-# return the hidden activation layers
-@app.route("/get_hidden_layers")
-def get_hidden_layers():
-    pass
+# the structure of gnn model
+@app.route("/get_model_structure")
+def get_model_structure():
+    # prepare the model for prediction
+    model = GCN(hidden_channels=64, dataset=dataset)
+    model.load_state_dict(torch.load("model.pth"))
+    return model_to_json(model)
 
 # return 404 - if getting any errors
 @app.errorhandler(404)
@@ -89,6 +94,9 @@ def start():
     return "start"
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
+
+
+# deploy on AWS
 
 

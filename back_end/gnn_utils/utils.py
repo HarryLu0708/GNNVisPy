@@ -1,4 +1,6 @@
 import torch
+import time
+import json
 
 from torch.nn import Linear
 import torch.nn.functional as F
@@ -19,17 +21,17 @@ class GCN(torch.nn.Module):
 
     def forward(self, x, edge_index, batch):
         h = self.conv1(x, edge_index)
-        h = h.relu()
-        h = self.conv2(h, edge_index)
-        h = h.relu()
-        h = self.conv3(h, edge_index)
-        h = global_mean_pool(h, batch)  # [batch_size, hidden_channels]
-        h = F.dropout(h, p=0.5, training=self.training)
+        h1 = h.relu()
+        h2 = self.conv2(h1, edge_index)
+        h3 = h2.relu()
+        h4 = self.conv3(h3, edge_index)
+        h5 = global_mean_pool(h4, batch)  # [batch_size, hidden_channels]
+        h6 = F.dropout(h5, p=0.5, training=self.training)
 
         # final classifier
-        out = self.lin(h)
+        out = F.softmax(h6)
         
-        return out, h
+        return out, [h.tolist(), h1.tolist(), h2.tolist(), h3.tolist(), h4.tolist(), h5.tolist(), h6.tolist()]
 
 # training function for the model
 def train(loader, model):
@@ -63,7 +65,6 @@ def training_loop(model, dataset, epoches):
     train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-    li = []
     # Training
     for epoch in range(1, epoches):
         train(train_loader, model)
@@ -72,10 +73,25 @@ def training_loop(model, dataset, epoches):
         print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
         data = {"epoch":epoch, "train_acc":train_acc, "test_acc":test_acc}
         yield f"data:{data}\n\n"
+        # time.sleep(0.3)
     model_path = "../model.pth"
     torch.save(model.state_dict(), model_path)
     print("saved model!")
     # return li
+
+
+'''get the structures of the GCN model'''
+def model_to_json(model):
+    model_dict = {}
+    for name, module in model.named_modules():
+        if name:  # This skips the root module
+            module_type = str(module.__class__).split(".")[-1].split("'")[0]
+            params = {param_name: param.size() for param_name, param in module.named_parameters()}
+            model_dict[name] = {
+                "type": module_type,
+                "parameters": params
+            }
+    return json.dumps(model_dict, indent=4, default=lambda o: tuple(o))
 
 
 '''function for prediction'''
@@ -86,4 +102,4 @@ def predict(model, dummy_input, edge_index, batch):
         output, h = model(dummy_input, edge_index, batch)
     predict = output.argmax(dim=1)
     result = predict.tolist()
-    return result
+    return result, h
