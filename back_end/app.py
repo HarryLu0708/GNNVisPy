@@ -4,9 +4,12 @@ from flask import Flask, jsonify, Response, stream_with_context
 from gnn_utils.utils import GCN, training_loop, predict, model_to_json
 import time
 
+from flask_cors import CORS
+
 dataset = TUDataset(root='data/TUDataset', name='MUTAG')
 
 app = Flask(__name__)
+CORS(app)
 
 '''get the dataset stats'''
 @app.route("/get_dataset_stats")
@@ -96,7 +99,5 @@ def start():
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
 
-
-# deploy on AWS
 
 
